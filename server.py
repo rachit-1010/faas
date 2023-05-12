@@ -7,17 +7,19 @@ import uuid
 class Server():
   def __init__(self):
     self.redis = redis.Redis(host='localhost', port=6379)
+    # TODO: Check whether we need to flush DB on server init using flushdb()
+    # Redis retains data acorss restarts
   
   # Assign a UUID to the function and insert into Redis db. Returns the assigned UUID
   def register_function(self, name, fn_payload):
-    function_id = uuid.uuid4()
+    function_id = str(uuid.uuid4())
     self.redis.hset(function_id, 'name', name)
     self.redis.hset(function_id, 'fn_payload', fn_payload)
     return function_id
 
   # Execute a valid function_id with given payload and return unique task_id with error code
   def execute_function(self, function_id, param_payload):
-    task_id = uuid.uuid4()
+    task_id = str(uuid.uuid4())
     if (self.redis.exists(function_id) == 0):
       # Function id isn't registered. Return ERROR code 400
       return task_id, 400
@@ -26,8 +28,11 @@ class Server():
     fn_payload = self.redis.hget(function_id, 'fn_payload')
     self.redis.hset(task_id, 'fn_payload', fn_payload)
     self.redis.hset(task_id, 'param_payload', param_payload)
-    self.redis.hset(task_id, 'status', 'QUEUED')
+    self.redis.hset(task_id, 'status', "QUEUED")
     self.redis.hset(task_id, 'result', '')
+
+    # Publish the new task id for task_dispatcher to execute
+    self.redis.publish('tasks', task_id)
     return task_id, 200
 
   # Fetch status of given task_id along with error code
@@ -39,7 +44,7 @@ class Server():
 
     # Fetch status key for given task_id
     status = self.redis.hget(task_id, 'status')
-    return status, 200
+    return status.decode("utf-8"), 200
 
   # Fetch result of given task_id along with error code. Result is valid only if task status is COMPLETED/FAILED
   def get_result(self, task_id):
@@ -50,7 +55,7 @@ class Server():
 
     # Fetch result key for given task_id
     result = self.redis.hget(task_id, 'result')
-    return result, 200
+    return result.decode("utf-8"), 200
 
 server = Server()
 
@@ -70,17 +75,21 @@ def execute_function():
   task_id, error_code = server.execute_function(function_id, payload)
   return jsonify({'task_id' : task_id}), error_code
 
-@app.route('/status/<task_id>', methods=['POST'])
+@app.route('/status/<task_id>', methods=['GET'])
 def status(task_id):
   status, error_code = server.get_status(task_id)
-  return jsonify({'status' : status}), error_code
+  return jsonify({'task_id' : task_id, 'status' : status}), error_code
 
 
-@app.route('/result/<task_id>', methods=['POST'])
+@app.route('/result/<task_id>', methods=['GET'])
 def result(task_id):
   result, error_code = server.get_result(task_id)
-  return jsonify({'result' : result}), error_code
+  return jsonify({'task_id' : task_id, 'result' : result}), error_code
 
+
+
+if __name__ == '__main__':
+  app.run(host="localhost", port=8000, debug=False)
 
 # References:
 # UUID: https://docs.python.org/3/library/uuid.html
