@@ -1,5 +1,7 @@
 import argparse
 import redis
+import serialize
+import inspect
 
 class TaskDispacher():
   def __init__(self, args):
@@ -12,8 +14,22 @@ class TaskDispacher():
 
   def run(self):
     for message in self.pubsub.listen():
-      task_id = message['data']
-      print("Subscriber received task: ", task_id)
+      # Filter only valid messages 
+      if message['type'] == 'message':
+        task_id = message['data']
+        fn_payload = self.redis.hget(task_id, 'fn_payload')
+        param_payload = self.redis.hget(task_id, 'param_payload')
+
+        # TODO:
+        # 1. Try catch for error
+        # 2. Add logic for assigning tasks based on operation mode - split into functions for local/push/pull
+        # 3. Spawn self.num_worker procs for Local worker using multiprocessing pool
+        fn = serialize.deserialize(fn_payload.decode("utf-8"))
+        result = fn(*serialize.deserialize(param_payload.decode("utf-8"))[0])
+        self.redis.hset(task_id, 'status', 'COMPLETED')
+        self.redis.hset(task_id, 'result', serialize.serialize(result))
+        print(result)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -26,3 +42,7 @@ if __name__ == '__main__':
 
     task_dispacher = TaskDispacher(args)
     task_dispacher.run()
+
+
+# References:
+# Redis pubsub: https://stackoverflow.com/questions/7871526/is-non-blocking-redis-pubsub-possible

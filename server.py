@@ -53,9 +53,10 @@ class Server():
       # Task id isn't registered. Return ERROR code 400
       return result, 400
 
-    # Fetch result key for given task_id
+    # Fetch result & status key for given task_id
     result = self.redis.hget(task_id, 'result')
-    return result.decode("utf-8"), 200
+    status = self.redis.hget(task_id, 'status')
+    return result.decode("utf-8"), status.decode("utf-8"), 200
 
 server = Server()
 
@@ -83,8 +84,8 @@ def status(task_id):
 
 @app.route('/result/<task_id>', methods=['GET'])
 def result(task_id):
-  result, error_code = server.get_result(task_id)
-  return jsonify({'task_id' : task_id, 'result' : result}), error_code
+  result, status, error_code = server.get_result(task_id)
+  return jsonify({'task_id' : task_id, 'result' : result, 'status' : status}), error_code
 
 
 
