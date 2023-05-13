@@ -1,7 +1,13 @@
 import argparse
 import redis
 import serialize
+import multiprocessing
 from multiprocessing import Pool
+import dill
+
+dill.Pickler.dumps, dill.Pickler.loads = dill.dumps, dill.loads
+multiprocessing.reduction.ForkingPickler = dill.Pickler
+multiprocessing.reduction.dump = dill.dump
 
 
 class TaskDispacher():
@@ -13,9 +19,10 @@ class TaskDispacher():
     self.pubsub = self.redis.pubsub()
     self.pubsub.subscribe('tasks')
     self.pool = Pool(self.num_workers)
+    # self.pool = multiprocessing.get_context('spawn').Pool(self.num_workers)
 
-  def callback(self, result):
-    print("Callback")
+  def callback(self, result, task_id):
+    print("Callback for ", task_id)
     print(result)
     
   def error_callback(self, error):
@@ -35,7 +42,9 @@ class TaskDispacher():
     args, kwargs = serialize.deserialize(param_payload)
     print(args)
     print(kwargs)
-    self.pool.apply_async(fn, args, kwargs, self.callback, self.error_callback)
+    # set_start_method('fork')
+    task_callback = lambda result : self.callback(result, task_id)
+    self.pool.apply_async(fn, args, kwargs, task_callback, self.error_callback)
 
     # self.redis.hset(task_id, 'status', 'COMPLETED')
     # self.redis.hset(task_id, 'result', serialize.serialize(result))
@@ -82,3 +91,4 @@ if __name__ == '__main__':
 
 # References:
 # Redis pubsub: https://stackoverflow.com/questions/7871526/is-non-blocking-redis-pubsub-possible
+# Deserialized function usage in multiprocessing: https://stackoverflow.com/questions/19984152/what-can-multiprocessing-and-dill-do-together

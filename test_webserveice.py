@@ -4,6 +4,9 @@ from serialize import serialize, deserialize
 import logging
 import time
 import random
+from multiprocessing import Pool
+import dill
+import multiprocessing
 
 base_url = "http://127.0.0.1:8000/"
 
@@ -23,6 +26,11 @@ def double(x):
     print("OKOK")
     return x * 2
 
+def callback(result):
+    print("Callback")
+
+def error_callback(result):
+    print("Error Callback")
 
 def test_execute_fn():
     resp = requests.post(base_url + "register_function",
@@ -35,7 +43,21 @@ def test_execute_fn():
                          json={"function_id": fn_info['function_id'],
                                "payload": serialize(((2,), {}))})
 
-    print(resp)
+    # print(resp)
+    # dill.Pickler.dumps, dill.Pickler.loads = dill.dumps, dill.loads
+    # multiprocessing.reduction.ForkingPickler = dill.Pickler
+    # multiprocessing.reduction.dump = dill.dump
+    # multiprocessing.queues._ForkingPickler = dill.Pickler
+
+    # p = Pool(1)
+    # fn = deserialize(serialize(double))
+    # print(fn)
+    # fn(2)
+    # print(double)
+    # # assert(double == fn)
+    # # fn.__name__ = "double"
+    # p.apply_async(fn, (2,), {}).get()
+
     assert resp.status_code == 200
     assert "task_id" in resp.json()
 
