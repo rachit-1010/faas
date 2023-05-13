@@ -20,6 +20,7 @@ def test_fn_registration():
 
 
 def double(x):
+    print("OKOK")
     return x * 2
 
 
