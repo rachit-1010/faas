@@ -24,10 +24,15 @@ class TaskDispacher():
   def callback(self, result, task_id):
     print("Callback for ", task_id)
     print(result)
+    self.redis.hset(task_id, 'result', result)
+    self.redis.hset(task_id, 'status', 'COMPLETED')
+
     
-  def error_callback(self, error):
-    print("Error Callback")
-    print(error)
+  def error_callback(self, result, task_id):
+    print("Error Callback", task_id)
+    print(result)
+    self.redis.hset(task_id, 'result', result)
+    self.redis.hset(task_id, 'status', 'FAILURE')
 
 
   def execute_local(self, task_id, fn_payload, param_payload):
@@ -43,9 +48,12 @@ class TaskDispacher():
     print(args)
     print(kwargs)
     # set_start_method('fork')
-    task_callback = lambda result : self.callback(result, task_id)
-    self.pool.apply_async(fn, args, kwargs, task_callback, self.error_callback)
+    lambda_callback = lambda result : self.callback(result, task_id)
+    lambda_error_callback = lambda result : self.error_callback(result, task_id)
 
+    res = self.pool.apply_async(fn, args, kwargs, lambda_callback, lambda_error_callback)
+    print("Execute_local")
+    print(res)
     # self.redis.hset(task_id, 'status', 'COMPLETED')
     # self.redis.hset(task_id, 'result', serialize.serialize(result))
     # print(result)

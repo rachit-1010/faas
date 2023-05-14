@@ -49,14 +49,6 @@ def test_execute_fn():
     # multiprocessing.reduction.dump = dill.dump
     # multiprocessing.queues._ForkingPickler = dill.Pickler
 
-    # p = Pool(1)
-    # fn = deserialize(serialize(double))
-    # print(fn)
-    # fn(2)
-    # print(double)
-    # # assert(double == fn)
-    # # fn.__name__ = "double"
-    # p.apply_async(fn, (2,), {}).get()
 
     assert resp.status_code == 200
     assert "task_id" in resp.json()
