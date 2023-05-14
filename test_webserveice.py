@@ -24,7 +24,7 @@ def test_fn_registration():
 
 def double(x):
     print("OKOK")
-    return x * 2
+    return x/0
 
 def callback(result):
     print("Callback")

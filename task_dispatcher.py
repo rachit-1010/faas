@@ -4,6 +4,8 @@ import serialize
 import multiprocessing
 from multiprocessing import Pool
 import dill
+import threading
+import queue
 
 dill.Pickler.dumps, dill.Pickler.loads = dill.dumps, dill.loads
 multiprocessing.reduction.ForkingPickler = dill.Pickler
@@ -19,6 +21,7 @@ class TaskDispacher():
     self.pubsub = self.redis.pubsub()
     self.pubsub.subscribe('tasks')
     self.pool = Pool(self.num_workers)
+    self.task_queue = queue.Queue() # Thread safe queue
     # self.pool = multiprocessing.get_context('spawn').Pool(self.num_workers)
 
   def callback(self, result, task_id):
@@ -31,17 +34,21 @@ class TaskDispacher():
   def error_callback(self, result, task_id):
     print("Error Callback", task_id)
     print(result)
-    self.redis.hset(task_id, 'result', result)
+    self.redis.hset(task_id, 'result', str(result))
     self.redis.hset(task_id, 'status', 'FAILURE')
 
 
-  def execute_local(self, task_id, fn_payload, param_payload):
+  def execute_local(self):
     # TODO:
     # 1. Try catch for error
     # 2. Add logic for assigning tasks based on operation mode - split into functions for local/push/pull
     # 3. Spawn self.num_worker procs for Local worker using multiprocessing pool
-    # def cb (result) :
-    #   print(self.mode, result)
+
+    task = self.task_queue.get()
+    task_id = task['task_id']
+    fn_payload = task['fn_payload']
+    param_payload = task['param_payload']
+
     fn = serialize.deserialize(fn_payload)
     print(fn)
     args, kwargs = serialize.deserialize(param_payload)
@@ -58,31 +65,37 @@ class TaskDispacher():
     # self.redis.hset(task_id, 'result', serialize.serialize(result))
     # print(result)
 
-  def execute_pull(self, task_id, fn_payload, param_payload):
+  def execute_pull(self):
     pass
 
-  def execute_push(self, task_id, fn_payload, param_payload):
+  def execute_push(self):
     pass
 
 
-  def execute_task(self, task_id, fn_payload, param_payload):
+  def execute_task(self):
     if (self.mode == 'local'):
-      self.execute_local(task_id, fn_payload, param_payload)
+      self.execute_local()
     elif (self.mode == 'pull'):
-      self.execute_pull(task_id, fn_payload, param_payload)
+      self.execute_pull()
     elif (self.mode == 'push'):
-      self.execute_push(task_id, fn_payload, param_payload)
+      self.execute_push()
 
-
-  def run(self):
+  def redis_subscriber(self):
     for message in self.pubsub.listen():
       # Filter only valid messages 
       if message['type'] == 'message':
         task_id = message['data']
         fn_payload = self.redis.hget(task_id, 'fn_payload').decode("utf-8")
         param_payload = self.redis.hget(task_id, 'param_payload').decode("utf-8")
-        self.execute_task(task_id, fn_payload, param_payload)
+        self.task_queue.put({'task_id' : task_id, 'fn_payload': fn_payload, 'param_payload': param_payload})
 
+
+  def run(self):
+    redis_subscriber_thread = threading.Thread(target=self.redis_subscriber)
+    redis_subscriber_thread.start()
+
+    execute_task_thread = threading.Thread(target=self.execute_task)
+    execute_task_thread.start()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
