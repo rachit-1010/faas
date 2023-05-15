@@ -7,6 +7,7 @@ import random
 from multiprocessing import Pool
 import dill
 import multiprocessing
+import time
 
 base_url = "http://127.0.0.1:8000/"
 
@@ -23,8 +24,9 @@ def test_fn_registration():
 
 
 def double(x):
+    time.sleep(1)
     print("OKOK")
-    return x/0
+    return x * 2
 
 def callback(result):
     print("Callback")
