@@ -18,4 +18,9 @@ class DispatcherToWorkerMessage():
     self.task_id = task_id
     self.fn_payload = fn_payload
     self.param_payload = param_payload
+
+
+class WorkerRegistrationMessage():
+  def __init__(self, num_procs):
+    self.num_procs = num_procs
         

@@ -7,6 +7,7 @@ import threading
 import queue
 import zmq
 from message import WorkerToDispatcherMessage, DispatcherToWorkerMessage
+import time
 
 dill.Pickler.dumps, dill.Pickler.loads = dill.dumps, dill.loads
 multiprocessing.reduction.ForkingPickler = dill.Pickler
@@ -33,6 +34,9 @@ class TaskDispacher():
     
     if (self.mode != "local"):
       self.socket.bind('tcp://127.0.0.1:' + str(self.port))
+    
+    self.worker_availability = {}
+    self.polling_interval = 0.1
 
   def callback(self, result, task_id):
     print("Callback for ", task_id)
@@ -110,8 +114,61 @@ class TaskDispacher():
         self.send_pull_worker_task()
 
 
+  def poll_push_worker(self):
+    # Listen to push workers for regsitration and result messages
+    while True:
+
+      try:
+        print("Trying to listen to worker")
+        self.lock.acquire()
+        m_recv = self.socket.recv_multipart(flags=zmq.NOBLOCK)
+        self.lock.release()
+
+        worker_id = m_recv[0]
+        worker_response = serialize.deserialize(m_recv[1])
+        print("Worker Id = ", worker_id)
+        if (hasattr(worker_response, 'num_procs')):
+          # It is a new worker registration message
+          self.worker_availability[worker_id] = worker_response.num_procs
+        else:
+          # It is a result message
+          self.set_result(worker_response)
+          self.worker_availability[worker_id] += 1
+      
+      except:
+        time.sleep(self.polling_interval)
+      
+  # Get best worker based on availability and using load balancing
+  def get_free_worker(self):
+    worker_id = max(self.worker_availability, key=self.worker_availability.get)
+    if (self.worker_availability[worker_id] <= 0):
+      return None
+    return worker_id
+
+  def send_push_worker_task(self):
+    # Pop tasks from task_queue and assign to workers using load balancing
+    while True:
+      if self.task_queue.qsize() > 0 :
+        worker_id = self.get_free_worker()
+        if (worker_id != None):
+          task = self.task_queue.get()
+          m_send = DispatcherToWorkerMessage(has_task=True, task_id=task['task_id'], fn_payload=task['fn_payload'], param_payload=task['param_payload'])
+          self.lock.acquire()
+          self.socket.send_multipart([worker_id, serialize.serialize(m_send)])
+          self.lock.release()
+          self.worker_availability[worker_id] -= 1
+        else:
+          time.sleep(self.polling_interval)
+      else:
+        time.sleep(self.polling_interval)
+
+
   def execute_push(self):
-    pass
+    poll_push_worker_thread = threading.Thread(target=self.poll_push_worker)
+    poll_push_worker_thread.start()
+
+    send_push_worker_task_thread = threading.Thread(target=self.send_push_worker_task)
+    send_push_worker_task_thread.start()
 
 
   def execute_task(self):
@@ -157,3 +214,4 @@ if __name__ == '__main__':
 # References:
 # Redis pubsub: https://stackoverflow.com/questions/7871526/is-non-blocking-redis-pubsub-possible
 # Deserialized function usage in multiprocessing: https://stackoverflow.com/questions/19984152/what-can-multiprocessing-and-dill-do-together
+# Argmax of python dict : https://stackoverflow.com/questions/268272/getting-key-with-maximum-value-in-dictionary
