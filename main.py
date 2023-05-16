@@ -48,9 +48,10 @@ class Server():
   # Fetch result of given task_id along with error code. Result is valid only if task status is COMPLETED/FAILED
   def get_result(self, task_id):
     result = ""
+    status = ""
     if (self.redis.exists(task_id) == 0):
       # Task id isn't registered. Return ERROR code 400
-      return result, 400
+      return result, status, 400
 
     # Fetch result & status key for given task_id
     result = self.redis.hget(task_id, 'result')

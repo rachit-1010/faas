@@ -8,6 +8,7 @@ from multiprocessing import Pool
 import dill
 import multiprocessing
 import time
+import uuid
 
 base_url = "http://127.0.0.1:8000/"
 
@@ -26,6 +27,12 @@ def test_fn_registration():
 def double(x):
     print("OKOK")
     return x * 2
+
+def sum1to100():
+    sum = 0
+    for i in range(1,101):
+        sum += i
+    print("1to100 complete")
 
 def callback(result):
     print("Callback")
@@ -87,8 +94,78 @@ def test_roundtrip():
             break
         time.sleep(0.01)
 
+def test_http_status_reg_fn_200():
+    resp = requests.post(base_url + "register_function",
+                         json={"name": "sum1to100",
+                               "payload": serialize(sum1to100)})
+    assert resp.status_code == 200
 
-if __name__ == '__main__':
-  test_fn_registration()
-  test_execute_fn()
-  test_roundtrip()
+def test_http_status_execute_fn_200():
+    resp = requests.post(base_url + "register_function",
+                         json={"name": "sum1to100",
+                               "payload": serialize(sum1to100)})
+    fn_info = resp.json()
+    assert "function_id" in fn_info
+
+    resp = requests.post(base_url + "execute_function",
+                         json={"function_id": fn_info['function_id'],
+                               "payload": serialize(((), {}))})
+    assert resp.status_code == 200
+
+def test_http_status_execute_fn_400():
+    resp = requests.post(base_url + "execute_function",
+                         json={"function_id": str(uuid.uuid4()),
+                               "payload": serialize(((), {}))})
+    assert resp.status_code == 400
+
+def test_http_status_status_fn_200():
+    resp = requests.post(base_url + "register_function",
+                         json={"name": "sum1to100",
+                               "payload": serialize(sum1to100)})
+    fn_info = resp.json()
+    assert "function_id" in fn_info
+
+    resp = requests.post(base_url + "execute_function",
+                         json={"function_id": fn_info['function_id'],
+                               "payload": serialize(((), {}))})
+    task_id = resp.json()["task_id"]
+
+    resp = requests.get (base_url + f"status/{task_id}")
+    assert resp.status_code == 200
+
+def test_http_status_status_fn_400():
+    resp = requests.get (base_url + f"status/{str(uuid.uuid4())}")
+    assert resp.status_code == 400
+
+def test_http_status_result_fn_200():
+    resp = requests.post(base_url + "register_function",
+                         json={"name": "sum1to100",
+                               "payload": serialize(sum1to100)})
+    fn_info = resp.json()
+    assert "function_id" in fn_info
+
+    resp = requests.post(base_url + "execute_function",
+                         json={"function_id": fn_info['function_id'],
+                               "payload": serialize(((), {}))})
+    task_id = resp.json()["task_id"]
+
+    # check the status of the task 20 times
+    for i in range(20):
+        resp = requests.get (base_url + f"result/{task_id}")
+        if resp.status_code == 200:
+            break
+        time.sleep(0.1)
+    assert resp.status_code == 200
+
+def test_http_status_result_fn_400():
+    resp = requests.get (base_url + f"result/{str(uuid.uuid4())}")
+    assert resp.status_code == 400
+
+
+
+
+
+# if __name__ == '__main__':
+#   test_fn_registration()
+#   test_execute_fn()
+#   test_roundtrip()
