@@ -32,6 +32,7 @@ def sum1to100():
     for i in range(1,101):
         sum += i
     print("1to100 complete")
+    return sum
 
 def inverse(x):
     return 1/x
@@ -218,4 +219,38 @@ def test_task_status_failed():
             break
         time.sleep(0.1)
     print(resp.json()['status'])
+    assert got_result == True
+
+def test_result_correctness():
+    resp = requests.post(base_url + "register_function",
+                         json={"name": "inverse",
+                               "payload": serialize(inverse)})
+    fn_info = resp.json()
+
+    resp = requests.post(base_url + "execute_function",
+                         json={"function_id": fn_info['function_id'],
+                               "payload": serialize(((0.5,), {}))})
+
+    assert resp.status_code == 200
+    assert "task_id" in resp.json()
+
+    task_id = resp.json()["task_id"]
+    got_result = False
+    for i in range(20):
+
+        resp = requests.get(f"{base_url}result/{task_id}")
+
+        assert resp.status_code == 200
+        assert resp.json()["task_id"] == task_id
+        if resp.json()['status'] in ["COMPLETED", "FAILED"]:
+            got_result = True
+            logging.warning(f"Task is now in {resp.json()['status']}")
+            s_result = resp.json()
+            logging.warning(s_result)
+            result = deserialize(s_result['result'])
+            print(result)
+            assert result == 2
+            break
+        time.sleep(0.1)
+
     assert got_result == True
