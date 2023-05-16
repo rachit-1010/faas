@@ -6,11 +6,7 @@ import multiprocessing
 import dill
 import serialize
 import threading
-
-
-dill.Pickler.dumps, dill.Pickler.loads = dill.dumps, dill.loads
-multiprocessing.reduction.ForkingPickler = dill.Pickler
-multiprocessing.reduction.dump = dill.dump
+from async_util import async_wrapper
 
 class PushWorker():
   def __init__(self, num_procs, dispatcher_url, polling_interval=0.1):
@@ -40,14 +36,14 @@ class PushWorker():
     self.send_result(m_send)
 
   def execute_task(self, m):
-    print("Attempting to deserialize")
-    fn = serialize.deserialize(m.fn_payload)
-    args, kwargs = serialize.deserialize(m.param_payload)
-    print("Deserialization successful")
+    # print("Attempting to deserialize")
+    # fn = serialize.deserialize(m.fn_payload)
+    # args, kwargs = serialize.deserialize(m.param_payload)
+    # print("Deserialization successful")
     lambda_callback = lambda result : self.callback(result, m.task_id)
     lambda_error_callback = lambda result : self.error_callback(result, m.task_id)
     print("Inserting task into pool:", m.task_id)
-    res = self.pool.apply_async(fn, args, kwargs, lambda_callback, lambda_error_callback)
+    res = self.pool.apply_async(async_wrapper, (m.fn_payload, m.param_payload), {}, lambda_callback, lambda_error_callback)
     print("Insertion successful")
 
   def run(self):

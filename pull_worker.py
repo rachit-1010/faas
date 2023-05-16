@@ -6,11 +6,7 @@ import multiprocessing
 import dill
 import serialize
 import threading
-
-
-dill.Pickler.dumps, dill.Pickler.loads = dill.dumps, dill.loads
-multiprocessing.reduction.ForkingPickler = dill.Pickler
-multiprocessing.reduction.dump = dill.dump
+from async_util import async_wrapper
 
 class PullWorker():
   def __init__(self, num_procs, dispatcher_url, polling_interval=0.1):
@@ -51,13 +47,13 @@ class PullWorker():
     self.num_avail_procs += 1
 
   def execute_task(self, m):
-    fn = serialize.deserialize(m.fn_payload)
-    args, kwargs = serialize.deserialize(m.param_payload)
+    # fn = serialize.deserialize(m.fn_payload)
+    # args, kwargs = serialize.deserialize(m.param_payload)
 
     lambda_callback = lambda result : self.callback(result, m.task_id)
     lambda_error_callback = lambda result : self.error_callback(result, m.task_id)
 
-    res = self.pool.apply_async(fn, args, kwargs, lambda_callback, lambda_error_callback)
+    res = self.pool.apply_async(async_wrapper, (m.fn_payload, m.param_payload), {}, lambda_callback, lambda_error_callback)
 
 
   def run(self):

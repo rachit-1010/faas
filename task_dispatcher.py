@@ -8,10 +8,7 @@ import queue
 import zmq
 from message import WorkerToDispatcherMessage, DispatcherToWorkerMessage
 import time
-
-dill.Pickler.dumps, dill.Pickler.loads = dill.dumps, dill.loads
-multiprocessing.reduction.ForkingPickler = dill.Pickler
-multiprocessing.reduction.dump = dill.dump
+from async_util import async_wrapper
 
 
 class TaskDispacher():
@@ -52,6 +49,7 @@ class TaskDispacher():
     self.redis.hset(task_id, 'result', serialize.serialize(result))
     self.redis.hset(task_id, 'status', 'FAILURE')
 
+  
 
   def execute_local(self):
     # TODO:
@@ -74,7 +72,7 @@ class TaskDispacher():
       lambda_callback = lambda result : self.callback(result, task_id)
       lambda_error_callback = lambda result : self.error_callback(result, task_id)
 
-      res = self.pool.apply_async(fn, args, kwargs, lambda_callback, lambda_error_callback)
+      res = self.pool.apply_async(async_wrapper, (fn_payload, param_payload), {}, lambda_callback, lambda_error_callback)
       print("Execute_local")
       print(res)
       # self.redis.hset(task_id, 'status', 'COMPLETED')

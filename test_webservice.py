@@ -51,7 +51,11 @@ def test_execute_fn():
     # multiprocessing.reduction.dump = dill.dump
     # multiprocessing.queues._ForkingPickler = dill.Pickler
 
-
+    args = (2,)
+    kwargs = {}
+    res = double(*args, **kwargs)
+    print(res)
+    
     assert resp.status_code == 200
     assert "task_id" in resp.json()
 
