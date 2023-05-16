@@ -18,6 +18,8 @@ class PullWorker():
     self.pool = multiprocessing.Pool(self.num_procs)
     self.lock = threading.Lock()
 
+  def __del__(self):
+    self.socket.disconnect(self.dispatcher_url)
 
   def send_and_receive_message(self, m_send):
     with self.lock:

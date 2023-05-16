@@ -4,6 +4,7 @@ import serialize
 import time
 import os
 import signal
+import sys
 
 def mpcs_sleep(t):
   import time
@@ -12,15 +13,10 @@ def mpcs_sleep(t):
   return t
 
 class StrongScaling():
-  def __init__(self, num_tasks, num_workers, num_procs, mode, port, param_payload):
+  def __init__(self, num_tasks, param_payload):
     self.num_tasks = num_tasks
-    self.num_workers = num_workers
-    self.num_procs = num_procs
-    self.mode = mode
-    self.port = port
     self.param_payload = param_payload
     self.pending_task_ids = set()
-    self.subprocesses = []
     self.fastapi_url = "http://127.0.0.1:8000/"
     self.fn_id = None
     self.polling_interval = 0.1
@@ -63,12 +59,6 @@ class StrongScaling():
           self.pending_task_ids.remove(task_id)
       time.sleep(self.polling_interval)
 
-  def kill_procs(self):
-    print("Killing processes: ", len(self.subprocesses))
-    for pid in self.subprocesses:
-      pid.terminate()
-      # os.kill(pid, signal.SIGTERM)
-
 
   def run(self):
     # Requirements: Redis server and main (mpcsFaaS) should be running before initiating perfomance tests
@@ -81,21 +71,6 @@ class StrongScaling():
     # 6. Repeatedly query for results. Quering continues only for task_ids with pending results.
     # 7. Stop timer when all tasks completed (i.e. pending_task_ids = {})
     # 8. Kill task_dispatcher and worker instances
-
-    # Run task_dispatcher with relevant mode, port and num_workers
-    p = subprocess.Popen(["python3", "task_dispatcher.py", "-m", str(self.mode), "-p", str(self.port), "-w", str(self.num_workers)]) 
-    self.subprocesses.append(p)
-    # pid = os.spawnl(os.P_NOWAIT, "python3", "task_dispatcher.py")
-    # self.subprocesses.append(pid)
-
-    # Run relevant worker instances (if not local mode)
-    dispatcher_url = "tcp://localhost:" + str(self.port)
-    if (self.mode != "local"):
-      for i in range(self.num_workers):
-        p = subprocess.Popen(["python3", self.mode + "_worker.py", str(self.num_procs), dispatcher_url])
-        self.subprocesses.append(p)
-        # pid = os.spawnl(os.P_NOWAIT, "python3", self.mode + "_worker.py", str(self.num_procs), dispatcher_url)
-        # self.subprocesses.append(pid)
 
     # Register 1 function
     self.fn_id = self.register_function()
@@ -112,16 +87,15 @@ class StrongScaling():
     # Stop timer when all tasks completed (i.e. pending_task_ids = {})
     end_time = time.time()
 
-    # Kill task_dispatcher and worker instances
-    self.kill_procs()
-
     return end_time - start_time
 
 
 
 
 if __name__ == '__main__':
-  ss = StrongScaling(1, 1, 1, "local", 5000, 5)
+  num_tasks = int(sys.argv[1])
+  param_payload = int(sys.argv[2])
+  ss = StrongScaling(num_tasks, param_payload)
   print(ss.run())
 
 

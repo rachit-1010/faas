@@ -9,6 +9,9 @@ class Server():
   def __init__(self):
     self.redis = redis.Redis(host='localhost', port=6379)
   
+  def __del__(self):
+     self.redis.connection_pool.disconnect()
+  
   # Assign a UUID to the function and insert into Redis db. Returns the assigned UUID
   def register_function(self, name, fn_payload):
     function_id = str(uuid.uuid4())

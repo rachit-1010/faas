@@ -34,6 +34,11 @@ class TaskDispacher():
     self.worker_availability = {}
     self.polling_interval = 0.1
     self.lock = threading.Lock()
+  
+  def __del__(self):
+    self.redis.connection_pool.disconnect()
+    if (self.mode != "local"):
+      self.socket.disconnect('tcp://127.0.0.1:' + str(self.port))
 
     
   def callback(self, result, task_id):
