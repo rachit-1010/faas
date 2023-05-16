@@ -25,7 +25,6 @@ def test_fn_registration():
 
 
 def double(x):
-    print("OKOK")
     return x * 2
 
 def sum1to100():
@@ -34,11 +33,8 @@ def sum1to100():
         sum += i
     print("1to100 complete")
 
-def callback(result):
-    print("Callback")
-
-def error_callback(result):
-    print("Error Callback")
+def inverse(x):
+    return 1/x
 
 def test_execute_fn():
     resp = requests.post(base_url + "register_function",
@@ -78,7 +74,7 @@ def test_roundtrip():
     assert "task_id" in resp.json()
 
     task_id = resp.json()["task_id"]
-
+    got_result = False
     for i in range(20):
 
         resp = requests.get(f"{base_url}result/{task_id}")
@@ -86,13 +82,17 @@ def test_roundtrip():
         assert resp.status_code == 200
         assert resp.json()["task_id"] == task_id
         if resp.json()['status'] in ["COMPLETED", "FAILED"]:
+            got_result = True
             logging.warning(f"Task is now in {resp.json()['status']}")
             s_result = resp.json()
             logging.warning(s_result)
             result = deserialize(s_result['result'])
             assert result == number*2
             break
-        time.sleep(0.01)
+        time.sleep(0.1)
+
+    assert got_result == True
+
 
 def test_http_status_reg_fn_200():
     resp = requests.post(base_url + "register_function",
@@ -161,11 +161,61 @@ def test_http_status_result_fn_400():
     resp = requests.get (base_url + f"result/{str(uuid.uuid4())}")
     assert resp.status_code == 400
 
+# Send a task and check whether the status is set to COMPLETED when run
+def test_task_status_completed():
+    resp = requests.post(base_url + "register_function",
+                         json={"name": "inverse",
+                               "payload": serialize(inverse)})
+    fn_info = resp.json()
+    assert "function_id" in fn_info
 
+    resp = requests.post(base_url + "execute_function",
+                         json={"function_id": fn_info['function_id'],
+                               "payload": serialize(((0.1,), {}))})
+    
+    assert resp.status_code == 200
+    assert "task_id" in resp.json()
 
+    task_id = resp.json()["task_id"]
+    got_result = False
+    for i in range(20):
+        resp = requests.get(f"{base_url}result/{task_id}")
+        assert resp.status_code == 200
+        assert resp.json()["task_id"] == task_id
+        if resp.json()['status'] in ["COMPLETED", "FAILED"]:
+            got_result = True
+            assert resp.json()['status'] == "COMPLETED"
+            break
+        time.sleep(0.1)
+    print(resp.json()['status'])
+    assert got_result == True
 
+# Send a failing task and check whether the status is set to FAILED when run
+def test_task_status_failed():
+    resp = requests.post(base_url + "register_function",
+                         json={"name": "inverse",
+                               "payload": serialize(inverse)})
+    fn_info = resp.json()
+    assert "function_id" in fn_info
 
-# if __name__ == '__main__':
-#   test_fn_registration()
-#   test_execute_fn()
-#   test_roundtrip()
+    resp = requests.post(base_url + "execute_function",
+                         json={"function_id": fn_info['function_id'],
+                               "payload": serialize(((0,), {}))})
+    
+    assert resp.status_code == 200
+    assert "task_id" in resp.json()
+
+    task_id = resp.json()["task_id"]
+
+    got_result = False
+    for i in range(20):
+        resp = requests.get(f"{base_url}result/{task_id}")
+        assert resp.status_code == 200
+        assert resp.json()["task_id"] == task_id
+        if resp.json()['status'] in ["COMPLETED", "FAILED"]:
+            got_result = True
+            assert resp.json()['status'] == "FAILED"
+            break
+        time.sleep(0.1)
+    print(resp.json()['status'])
+    assert got_result == True

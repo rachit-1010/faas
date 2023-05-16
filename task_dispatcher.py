@@ -43,7 +43,7 @@ class TaskDispacher():
     
   def error_callback(self, result, task_id):
     self.redis.hset(task_id, 'result', serialize.serialize(result))
-    self.redis.hset(task_id, 'status', 'FAILURE')
+    self.redis.hset(task_id, 'status', 'FAILED')
 
     
   def execute_local(self):

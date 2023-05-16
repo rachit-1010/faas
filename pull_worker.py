@@ -33,7 +33,7 @@ class PullWorker():
     self.num_avail_procs += 1
     
   def error_callback(self, result, task_id):
-    m_send = WorkerToDispatcherMessage(has_result=True, task_id=task_id, result=serialize.serialize(result), status="FAILURE")
+    m_send = WorkerToDispatcherMessage(has_result=True, task_id=task_id, result=serialize.serialize(result), status="FAILED")
     m_recv = self.send_and_receive_message(m_send)
     self.num_avail_procs += 1
 

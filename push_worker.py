@@ -28,7 +28,7 @@ class PushWorker():
     self.send_result(m_send)
     
   def error_callback(self, result, task_id):
-    m_send = WorkerToDispatcherMessage(has_result=True, task_id=task_id, result=serialize.serialize(result), status="FAILURE")
+    m_send = WorkerToDispatcherMessage(has_result=True, task_id=task_id, result=serialize.serialize(result), status="FAILED")
     self.send_result(m_send)
 
   def execute_task(self, m):
