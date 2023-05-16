@@ -25,16 +25,15 @@ class PullWorker():
 
 
   def send_and_receive_message(self, m_send):
-    self.lock.acquire()
-    print("Attempting to connect")
-    self.socket.connect(self.dispatcher_url)
-    print("Connected to ZMQ socket")
-    self.socket.send_pyobj(m_send)
-    print("Sent message to ZMQ socket")
-    m_recv = self.socket.recv_pyobj()
-    print("Received message to ZMQ socket")
-    self.socket.disconnect(self.dispatcher_url)
-    self.lock.release()
+    with self.lock:
+      print("Attempting to connect")
+      self.socket.connect(self.dispatcher_url)
+      print("Connected to ZMQ socket")
+      self.socket.send_pyobj(m_send)
+      print("Sent message to ZMQ socket")
+      m_recv = self.socket.recv_pyobj()
+      print("Received message to ZMQ socket")
+      self.socket.disconnect(self.dispatcher_url)
     return m_recv
 
   def callback(self, result, task_id):

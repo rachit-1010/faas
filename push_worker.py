@@ -24,9 +24,8 @@ class PushWorker():
     self.lock = threading.Lock()
 
   def send_result(self, m_send):
-    self.lock.acquire()
-    self.socket.send(serialize.serialize(m_send))
-    self.lock.release()
+    with self.lock:
+      self.socket.send(dill.dumps(m_send))
 
   def callback(self, result, task_id):
     print("Callback for ", task_id)
@@ -41,29 +40,31 @@ class PushWorker():
     self.send_result(m_send)
 
   def execute_task(self, m):
+    print("Attempting to deserialize")
     fn = serialize.deserialize(m.fn_payload)
     args, kwargs = serialize.deserialize(m.param_payload)
-
+    print("Deserialization successful")
     lambda_callback = lambda result : self.callback(result, m.task_id)
     lambda_error_callback = lambda result : self.error_callback(result, m.task_id)
-
+    print("Inserting task into pool:", m.task_id)
     res = self.pool.apply_async(fn, args, kwargs, lambda_callback, lambda_error_callback)
+    print("Insertion successful")
 
   def run(self):
     # Register worker with task dispatcher, and announce number of available procs with worker
     m_registration = WorkerRegistrationMessage(self.num_procs)
-    # self.socket.send_string(serialize.serialize(m_registration))
-    self.socket.send(b"Hello")
+    self.socket.send(dill.dumps(m_registration))
+    # msg = "Hello"
+    # self.socket.send(msg.encode())
 
     print("Sent registration message")
     # Listen to tasks from dispatcher
     while (True):
       try:
-        self.lock.acquire()
-        task = serialize.deserialize(self.socket.recv_string(flags=zmq.NOBLOCK))
-        self.lock.release()
-
-        self.excute_task(task)
+        with self.lock:
+          task = dill.loads(self.socket.recv(flags=zmq.NOBLOCK))
+        print("Received task to work on")
+        self.execute_task(task)
       except:
         time.sleep(self.polling_interval)
       

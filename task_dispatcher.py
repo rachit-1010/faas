@@ -37,6 +37,7 @@ class TaskDispacher():
     
     self.worker_availability = {}
     self.polling_interval = 0.1
+    self.lock = threading.Lock()
 
   def callback(self, result, task_id):
     print("Callback for ", task_id)
@@ -120,15 +121,18 @@ class TaskDispacher():
 
       try:
         print("Trying to listen to worker")
-        self.lock.acquire()
-        m_recv = self.socket.recv_multipart(flags=zmq.NOBLOCK)
-        self.lock.release()
+        with self.lock:
+          print("Lock acquired")
+          m_recv = self.socket.recv_multipart(flags=zmq.NOBLOCK)
+          print("Released lock")
 
         worker_id = m_recv[0]
-        worker_response = serialize.deserialize(m_recv[1])
+        worker_response = dill.loads(m_recv[1])
+
         print("Worker Id = ", worker_id)
         if (hasattr(worker_response, 'num_procs')):
           # It is a new worker registration message
+          print("Registered new worker with num procs = ", worker_response.num_procs)
           self.worker_availability[worker_id] = worker_response.num_procs
         else:
           # It is a result message
@@ -136,6 +140,7 @@ class TaskDispacher():
           self.worker_availability[worker_id] += 1
       
       except:
+        print("In exception. Sleep now")
         time.sleep(self.polling_interval)
       
   # Get best worker based on availability and using load balancing
@@ -153,9 +158,8 @@ class TaskDispacher():
         if (worker_id != None):
           task = self.task_queue.get()
           m_send = DispatcherToWorkerMessage(has_task=True, task_id=task['task_id'], fn_payload=task['fn_payload'], param_payload=task['param_payload'])
-          self.lock.acquire()
-          self.socket.send_multipart([worker_id, serialize.serialize(m_send)])
-          self.lock.release()
+          with self.lock:
+            self.socket.send_multipart([worker_id, dill.dumps(m_send)])
           self.worker_availability[worker_id] -= 1
         else:
           time.sleep(self.polling_interval)
