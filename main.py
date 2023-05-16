@@ -8,8 +8,6 @@ app = FastAPI()
 class Server():
   def __init__(self):
     self.redis = redis.Redis(host='localhost', port=6379)
-    # TODO: Check whether we need to flush DB on server init using flushdb()
-    # Redis retains data acorss restarts
   
   # Assign a UUID to the function and insert into Redis db. Returns the assigned UUID
   def register_function(self, name, fn_payload):
@@ -60,7 +58,6 @@ class Server():
     return result.decode("utf-8"), status.decode("utf-8"), 200
     
 server = Server()
-
 
 @app.post("/register_function")
 async def register_function(request: Request):

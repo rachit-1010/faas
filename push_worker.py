@@ -24,47 +24,30 @@ class PushWorker():
       self.socket.send(dill.dumps(m_send))
 
   def callback(self, result, task_id):
-    print("Callback for ", task_id)
-    print(result)
     m_send = WorkerToDispatcherMessage(has_result=True, task_id=task_id, result=serialize.serialize(result), status="COMPLETED")
     self.send_result(m_send)
     
   def error_callback(self, result, task_id):
-    print("Error Callback", task_id)
-    print(result)
     m_send = WorkerToDispatcherMessage(has_result=True, task_id=task_id, result=serialize.serialize(result), status="FAILURE")
     self.send_result(m_send)
 
   def execute_task(self, m):
-    # print("Attempting to deserialize")
-    # fn = serialize.deserialize(m.fn_payload)
-    # args, kwargs = serialize.deserialize(m.param_payload)
-    # print("Deserialization successful")
     lambda_callback = lambda result : self.callback(result, m.task_id)
     lambda_error_callback = lambda result : self.error_callback(result, m.task_id)
-    print("Inserting task into pool:", m.task_id)
-    res = self.pool.apply_async(async_wrapper, (m.fn_payload, m.param_payload), {}, lambda_callback, lambda_error_callback)
-    print("Insertion successful")
+    self.pool.apply_async(async_wrapper, (m.fn_payload, m.param_payload), {}, lambda_callback, lambda_error_callback)
 
   def run(self):
     # Register worker with task dispatcher, and announce number of available procs with worker
     m_registration = WorkerRegistrationMessage(self.num_procs)
     self.socket.send(dill.dumps(m_registration))
-    # msg = "Hello"
-    # self.socket.send(msg.encode())
 
-    print("Sent registration message")
-    # Listen to tasks from dispatcher
     while (True):
       try:
         with self.lock:
           task = dill.loads(self.socket.recv(flags=zmq.NOBLOCK))
-        print("Received task to work on")
         self.execute_task(task)
       except:
         time.sleep(self.polling_interval)
-      
-      
       
 
 if __name__ == '__main__':

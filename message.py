@@ -1,5 +1,4 @@
 
-
 class WorkerToDispatcherMessage():
   def __init__(self, has_result, task_id, result, status):
     # has_result = True => There is a result to be returned

@@ -24,7 +24,6 @@ def test_fn_registration():
 
 
 def double(x):
-    time.sleep(1)
     print("OKOK")
     return x * 2
 
@@ -44,17 +43,6 @@ def test_execute_fn():
     resp = requests.post(base_url + "execute_function",
                          json={"function_id": fn_info['function_id'],
                                "payload": serialize(((2,), {}))})
-
-    # print(resp)
-    # dill.Pickler.dumps, dill.Pickler.loads = dill.dumps, dill.loads
-    # multiprocessing.reduction.ForkingPickler = dill.Pickler
-    # multiprocessing.reduction.dump = dill.dump
-    # multiprocessing.queues._ForkingPickler = dill.Pickler
-
-    args = (2,)
-    kwargs = {}
-    res = double(*args, **kwargs)
-    print(res)
     
     assert resp.status_code == 200
     assert "task_id" in resp.json()
