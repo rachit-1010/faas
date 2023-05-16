@@ -1,5 +1,5 @@
 import requests
-from serialize import serialize, deserialize
+from .serialize import serialize, deserialize
 # import serialize
 import logging
 import time
