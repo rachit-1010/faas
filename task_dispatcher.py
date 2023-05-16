@@ -41,12 +41,14 @@ class TaskDispacher():
       self.socket.disconnect('tcp://127.0.0.1:' + str(self.port))
 
     
-  def callback(self, result, task_id):
+  def callback(self, result_tuple):
+    task_id, result = result_tuple
     self.redis.hset(task_id, 'result', serialize.serialize(result))
     self.redis.hset(task_id, 'status', 'COMPLETED')
 
     
-  def error_callback(self, result, task_id):
+  def error_callback(self, result_tuple):
+    task_id, result = result_tuple
     self.redis.hset(task_id, 'result', serialize.serialize(result))
     self.redis.hset(task_id, 'status', 'FAILED')
 
@@ -58,9 +60,7 @@ class TaskDispacher():
       fn_payload = task['fn_payload']
       param_payload = task['param_payload']
       self.redis.hset(task_id, 'status', 'RUNNING')
-      lambda_callback = lambda result : self.callback(result, task_id)
-      lambda_error_callback = lambda result : self.error_callback(result, task_id)
-      self.pool.apply_async(async_wrapper, (fn_payload, param_payload), {}, lambda_callback, lambda_error_callback)
+      self.pool.apply_async(async_wrapper, (fn_payload, param_payload, task_id), {}, self.callback, self.error_callback)
 
   def set_result(self, m_recv):
     self.redis.hset(m_recv.task_id, 'result', m_recv.result)

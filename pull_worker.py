@@ -29,20 +29,20 @@ class PullWorker():
       self.socket.disconnect(self.dispatcher_url)
     return m_recv
 
-  def callback(self, result, task_id):
+  def callback(self, result_tuple):
+    task_id, result = result_tuple
     m_send = WorkerToDispatcherMessage(has_result=True, task_id=task_id, result=serialize.serialize(result), status="COMPLETED")
     m_recv = self.send_and_receive_message(m_send)
     self.num_avail_procs += 1
     
-  def error_callback(self, result, task_id):
+  def error_callback(self, result_tuple):
+    task_id, result = result_tuple
     m_send = WorkerToDispatcherMessage(has_result=True, task_id=task_id, result=serialize.serialize(result), status="FAILED")
     m_recv = self.send_and_receive_message(m_send)
     self.num_avail_procs += 1
 
   def execute_task(self, m):
-    lambda_callback = lambda result : self.callback(result, m.task_id)
-    lambda_error_callback = lambda result : self.error_callback(result, m.task_id)
-    self.pool.apply_async(async_wrapper, (m.fn_payload, m.param_payload), {}, lambda_callback, lambda_error_callback)
+    self.pool.apply_async(async_wrapper, (m.fn_payload, m.param_payload, m.task_id), {}, self.callback, self.error_callback)
 
 
   def run(self):

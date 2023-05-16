@@ -26,18 +26,18 @@ class PushWorker():
     with self.lock:
       self.socket.send(dill.dumps(m_send))
 
-  def callback(self, result, task_id):
+  def callback(self, result_tuple):
+    task_id, result = result_tuple
     m_send = WorkerToDispatcherMessage(has_result=True, task_id=task_id, result=serialize.serialize(result), status="COMPLETED")
     self.send_result(m_send)
     
-  def error_callback(self, result, task_id):
+  def error_callback(self, result_tuple):
+    task_id, result = result_tuple
     m_send = WorkerToDispatcherMessage(has_result=True, task_id=task_id, result=serialize.serialize(result), status="FAILED")
     self.send_result(m_send)
 
   def execute_task(self, m):
-    lambda_callback = lambda result : self.callback(result, m.task_id)
-    lambda_error_callback = lambda result : self.error_callback(result, m.task_id)
-    self.pool.apply_async(async_wrapper, (m.fn_payload, m.param_payload), {}, lambda_callback, lambda_error_callback)
+    self.pool.apply_async(async_wrapper, (m.fn_payload, m.param_payload, m.task_id), {}, self.callback, self.error_callback)
 
   def run(self):
     # Register worker with task dispatcher, and announce number of available procs with worker

@@ -1,21 +1,11 @@
 #!/bin/bash
 set -x
 
-# testTypes=(strong_scaling weak_scaling latency)
-testTypes=(strong_scaling)
-
-numTasks=(1)
-numWorkers=(1)
-numProcs=1
-modes=(pull push)
-paramPayload=5
-
-spawn_processes(){
-  num_task=${1} 
-  num_worker=${2} 
-  num_proc=${3} 
-  mode=${4} 
-  port=${5} 
+spawn_processes(){ 
+  num_worker=${1} 
+  num_proc=${2} 
+  mode=${3} 
+  port=${4} 
 
   nohup python3 task_dispatcher.py "-m" ${mode} "-p" ${port} "-w" ${num_worker} &
 
@@ -33,9 +23,23 @@ kill_processes(){
   pkill -f push_worker
 }
 
+# testTypes=(strong_scaling weak_scaling latency)
+testTypes=(strong_scaling)
 
-spawn_processes 1 2 1 local 5500
+numTasks=(1 2 3 4 5 6 7 8)
+numWorkers=(1 2 3 4 5 6 7 8)
+numProcs=1
+modes=(pull push)
+paramPayload=2
 
-python3 strong_scaling.py 1 $paramPayload
+rm result_local_strong.csv
+echo "NumWorkers,Time" >> result_local_strong.csv
+for i in {1..8};
+  do
+    spawn_processes ${i} ${numProcs} local 5500
+    time="$(python3 scaling.py $(( i )) $paramPayload 2>&1)"
+    echo ${i},${time} >> result_local_strong.csv
+    kill_processes
+  done
 
-kill_processes
+

@@ -35,7 +35,7 @@ class StrongScaling():
     resp_json = resp.json()
     assert resp.status_code == 200
     assert resp_json["task_id"] == task_id
-    print("Got status = ", resp_json["status"])
+    print("Got status = ", resp_json["status"], " for taskid = ", task_id)
     return resp_json["status"] == "COMPLETED"
 
   def submit_tasks(self):
