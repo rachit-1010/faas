@@ -40,6 +40,7 @@ for i in {1..8};
     time="$(python3 scaling.py $(( i )) $paramPayload 2>&1)"
     echo ${i},${time} >> result_local_strong.csv
     kill_processes
+    sleep 1
   done
 
 

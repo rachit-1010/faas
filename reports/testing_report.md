@@ -4,6 +4,11 @@ The provided testing script consists of multiple tests that aim to validate the 
 
 **PyTests**
 
+The pytests are available in tests/test_webservice.py
+Please use the following command for running the tests from the parent repo directory:
+
+> pytest tests
+
 **1. Function Registration Tests:**
 
 - These tests focus on registering functions within the system.
