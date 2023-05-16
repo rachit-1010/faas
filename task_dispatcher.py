@@ -35,6 +35,7 @@ class TaskDispacher():
     self.polling_interval = 0.1
     self.lock = threading.Lock()
 
+    
   def callback(self, result, task_id):
     self.redis.hset(task_id, 'result', serialize.serialize(result))
     self.redis.hset(task_id, 'status', 'COMPLETED')
@@ -44,12 +45,14 @@ class TaskDispacher():
     self.redis.hset(task_id, 'result', serialize.serialize(result))
     self.redis.hset(task_id, 'status', 'FAILURE')
 
+    
   def execute_local(self):
     while True:
       task = self.task_queue.get()
       task_id = task['task_id']
       fn_payload = task['fn_payload']
       param_payload = task['param_payload']
+      self.redis.hset(task_id, 'status', 'RUNNING')
       lambda_callback = lambda result : self.callback(result, task_id)
       lambda_error_callback = lambda result : self.error_callback(result, task_id)
       self.pool.apply_async(async_wrapper, (fn_payload, param_payload), {}, lambda_callback, lambda_error_callback)
@@ -69,6 +72,7 @@ class TaskDispacher():
       m_send.task_id = task['task_id']
       m_send.fn_payload = task['fn_payload']
       m_send.param_payload = task['param_payload']
+      self.redis.hset(m_send.task_id, 'status', 'RUNNING')
     self.socket.send_pyobj(m_send)
   
 
@@ -119,6 +123,7 @@ class TaskDispacher():
         if (worker_id != None):
           task = self.task_queue.get()
           m_send = DispatcherToWorkerMessage(has_task=True, task_id=task['task_id'], fn_payload=task['fn_payload'], param_payload=task['param_payload'])
+          self.redis.hset(m_send.task_id, 'status', 'RUNNING')
           with self.lock:
             self.socket.send_multipart([worker_id, dill.dumps(m_send)])
           self.worker_availability[worker_id] -= 1
